@@ -194,8 +194,8 @@ const art=DalePerroArt;art.create();const p=art.palette;
 canvas.width=800;canvas.height=600;
 const c=canvas.getContext('2d');c.imageSmoothingEnabled=false;
 const names=Object.fromEntries([...art.sauces,...art.extras,...art.bases,...art.drinks].map(a=>[a[0],a[1]]));
-const orders=[{base:'normal',sauces:['ajo-perejil','cheddar'],extras:['aguacate'],drink:'malta'},{base:'doble',sauces:['ketchup','mostaza-miel'],extras:['papitas'],drink:'pepsi'}];
-const players=[{focus:0,time:45,base:'normal',sauces:['ajo-perejil'],extras:['aguacate'],drink:'malta',effect:0,damage:0,cheese:0,delta:0},{focus:7,time:45,base:'doble',sauces:['ketchup'],extras:['papitas'],drink:'pepsi',effect:0,damage:0,cheese:0,delta:0}];
+const orders=[0,1].map(()=>({base:'normal',sauces:[],extras:[],drink:null}));
+const players=[0,1].map(n=>({focus:n?7:0,time:45,base:'normal',sauces:[],extras:[],drink:null,effect:0,damage:0,cheese:0,delta:0}));
 let active=0;const buttons=[];const meta={live:false,remaining:90,reducedMotion:false};
 players.forEach((q,n)=>Object.assign(q,{customer:n,patience:1,combo:0,served:0,message:'',preps:[],arriving:0,guide:false}));
 const rows=[art.sauces.map(a=>({id:a[0],type:'sauce'})),art.extras.map(a=>({id:a[0],type:'extra'})),[...art.bases.map(a=>({id:a[0],type:'base'})),...art.drinks.map(a=>({id:a[0],type:'drink'}))]];
@@ -297,9 +297,9 @@ return{players,orders,buttons,draw,move,toggle,select,has,orderItems,surplus,cor
 
 
 function createDalePerroSound(){
-let ctx,master,music,ambient,fx,analyser,noise,next=0,step=0,street=0,active=false,mute=false,musicOff=false,lastLevel='',tempo=96;
+let ctx,master,music,ambient,fx,noise,next=0,step=0,street=0,active=false,mute=false,musicOff=false,lastLevel='',tempo=96;
 const stats={musicEvents:0,effectEvents:0,ambientEvents:0};
-function init(){if(ctx)return;try{ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();music=ctx.createGain();ambient=ctx.createGain();fx=ctx.createGain();analyser=ctx.createAnalyser();analyser.fftSize=256;master.gain.value=.65;music.gain.value=0;ambient.gain.value=0;fx.gain.value=.4;music.connect(master);ambient.connect(master);fx.connect(master);master.connect(analyser);analyser.connect(ctx.destination);
+function init(){if(ctx)return;try{ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();music=ctx.createGain();ambient=ctx.createGain();fx=ctx.createGain();master.gain.value=.65;music.gain.value=0;ambient.gain.value=0;fx.gain.value=.4;music.connect(master);ambient.connect(master);fx.connect(master);master.connect(ctx.destination);
 noise=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);let a=noise.getChannelData(0),seed=87123;for(let i=0;i<a.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;a[i]=(seed/2147483648-1)*.7;}
 for(const[f,g]of[[1900,.012],[360,.006]]){let s=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();s.buffer=noise;s.loop=true;filter.type='bandpass';filter.frequency.value=f;filter.Q.value=f>1000?.5:1.4;gain.gain.value=g;s.connect(filter);filter.connect(gain);gain.connect(ambient);s.start();}stats.ambientEvents+=2;
 }catch{ctx=null;}}
@@ -331,8 +331,7 @@ else if(kind==='bad'){note(fx,t,48,.16,.17,'triangle',90);note(fx,t+.08,42,.16,.
 else if(kind==='tick')note(fx,t,76,.07,.065,'sine');
 else if(kind==='tie'){[69,72,69].forEach((n,i)=>note(fx,t+i*.13,n,.23,.14,'sine'));}
 else if(kind==='win'||kind==='lose'){const ns=kind==='win'?[69,73,76,81]:[64,60,57,52];ns.forEach((n,i)=>note(fx,t+i*.12,n,.25,.16,'triangle'));}}
-function level(){if(!analyser)return 0;const b=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(b);return Math.sqrt(b.reduce((s,x)=>s+x*x,0)/b.length);}
-return{start,update,effect,settings,level,get stats(){return{...stats,tempo,muted:mute,musicMuted:musicOff,running:ctx?.state==='running',active};}};
+return{start,update,effect,settings,get stats(){return{...stats,tempo,muted:mute,musicMuted:musicOff,running:ctx?.state==='running',active};}};
 }
 
 function createDaleScreens(A){
@@ -389,10 +388,10 @@ function say(n,line,speaker){const q=v.players[n];q.speech=line;q.speechError=fa
 function lobby(){phase='menu';v.meta.live=false;}
 function prepare(players){mode=players;demo=4;demoFocus=2;demoAge=0;guideReturn='start';phase='guide';sonic.start();sonic.settings(muted,musicMuted);}
 function nextOrder(n){const q=v.players[n];v.orders[n]=orderFor(q.serial);Object.assign(q,{base:'normal',sauces:[],extras:[],drink:null,customer:(q.serial+n*2)%4,patience:1,age:0,autoReady:0,wait:0,delta:0,errorTime:0,message:'',effect:0,damage:0,cheese:0,preps:[],arriving:400,guide:q.serial<2&&(mode===2||n===0),deliveryCanvas:null});if(!q.speechTime)say(n,['ECHALE DE TODO\nMENOS MAL DE OJO.','ECHALE HASTA PELO DE BOLA','PRIMERO EL PERRO.\nDESPUES VEMOS.','HOY SE COME.\nMANANA SE ENTRENA.'][q.customer]);}
-function begin(players){mode=players;seed=players===1?87123:(Date.now()^Math.floor(Math.random()*1000000))>>>0;phase='playing';elapsed=0;winner=-1;reason='';record=false;aiClock=0;axis=['',''];repeatAt=[0,0];for(const k in pressed)delete pressed[k];for(const k in held)held[k]=false;
+function begin(players){mode=players;seed=(Date.now()^Math.floor(Math.random()*1000000))>>>0;phase='playing';elapsed=0;winner=-1;reason='';record=false;aiClock=0;axis=['',''];repeatAt=[0,0];for(const k in pressed)delete pressed[k];for(const k in held)held[k]=false;
 sonic.start();sonic.settings(muted,musicMuted);v.meta.live=true;v.meta.mode=mode;v.meta.attack=null;v.meta.remaining=90;v.meta.reducedMotion=reduced;for(let n=0;n<2;n++){Object.assign(v.players[n],{focus:n?7:0,time:45,score:0,served:0,combo:0,maxCombo:0,serial:0,invalid:0,missed:0,lastTick:45,everBehind:false,comeback:false,speechTime:0,hit:0,houseJoke:false,talk:[0,0,0,0]});nextOrder(n);}v.setActive(0);sound('pick');}
 function valid(n){return v.orderItems(n).every(it=>v.has(n,it))&&!v.surplus(n);}
-function finish(){if(phase!=='playing')return;phase='result';const[a,b]=v.players;const timeDifference=Math.round(a.time*10)-Math.round(b.time*10),expired=a.time===0||b.time===0;const difference=expired?a.time-b.time:timeDifference||a.served-b.served;winner=difference===0?-1:difference>0?0:1;reason=winner<0?'MISMO TIEMPO Y VENTAS':expired?'POR RELOJ AGOTADO':timeDifference?'POR TIEMPO':'POR VENTAS';sonic.update(false,false,0);sound(winner<0?'tie':mode===2||winner===0?'win':'lose');v.players.forEach((q,n)=>q.score=Math.max(0,(winner===n?1000+Math.floor(900-elapsed/100):0)+q.served*10-q.invalid*20-q.missed*30));if(mode===1){record=a.score>best;best=Math.max(best,a.score);if(record)try{const result=window.platanusArcadeStorage?.set('dale-perro.duelo.score-v8',{score:best});result?.catch(()=>{});}catch{}}}
+function finish(){if(phase!=='playing')return;phase='result';const[a,b]=v.players;const timeDifference=Math.round(a.time*10)-Math.round(b.time*10),expired=a.time===0||b.time===0;const difference=expired?a.time-b.time:timeDifference||a.served-b.served;winner=difference===0?-1:difference>0?0:1;reason=winner<0?'MISMO TIEMPO Y VENTAS':expired?'POR RELOJ AGOTADO':timeDifference?'POR TIEMPO':'POR VENTAS';sonic.update(false,false,0);sound(winner<0?'tie':mode===2||winner===0?'win':'lose');v.players.forEach((q,n)=>q.score=Math.max(0,(winner===n?1000+Math.floor(900-elapsed/100):0)+q.served*10-q.invalid*20-q.missed*30));if(mode===1){record=a.score>best;best=Math.max(best,a.score);if(record)try{const result=window.platanusArcadeStorage?.set('dale-perro.duelo.score-v11',{score:best});result?.catch(()=>{});}catch{}}}
 function serve(n,defer=false){if(phase!=='playing')return;const q=v.players[n],r=v.players[1-n];if(q.wait>0)return;
 if(!valid(n)){q.combo=0;q.invalid++;q.delta=-Math.min(3,q.time);q.time=Math.max(0,q.time-3);q.effect=0;q.damage=650;q.message=v.correction(n);q.errorTime=2800;say(n,'PANA,\n'+q.message);q.speechError=true;sound('bad');if(q.time<=0)finish();return;}
 q.autoReady=0;q.served++;q.combo++;q.maxCombo=Math.max(q.maxCombo,q.combo);const gain=q.combo%3===0?8:6;q.delta=Math.min(gain,75-q.time);q.time=defer?q.time+gain:Math.min(75,q.time+gain);r.delta=-Math.min(3,r.time);r.time=defer?r.time-3:Math.max(0,r.time-3);q.damage=0;q.effect=1100;q.wait=1100;
@@ -434,7 +433,7 @@ const game=new Phaser.Game({type:Phaser.CANVAS,width:800,height:600,parent:'game
 const cv=document.createElement('canvas');v=createDalePerroView(cv);screens=createDaleScreens(A);v.meta.reducedMotion=reduced;this.textures.addCanvas('duelo-screen',cv);texture=this.textures.get('duelo-screen');texture.setFilter(Phaser.Textures.FilterMode.NEAREST);this.add.image(0,0,'duelo-screen').setOrigin(0);
 const down=e=>{const code=map[String(e.key).toLowerCase()];if(!code)return;e.preventDefault();if(!held[code]&&!e.repeat)pressed[code]=true;held[code]=true;},up=e=>{const code=map[String(e.key).toLowerCase()];if(code){e.preventDefault();held[code]=false;}},blur=()=>pause(),visibility=()=>{if(document.hidden)pause();};
 window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);this.input.on('pointerdown',p=>pointer(p.x,p.y));this.events.once('shutdown',()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur);document.removeEventListener('visibilitychange',visibility);});
-try{const result=window.platanusArcadeStorage?.get('dale-perro.duelo.score-v8');result?.then(r=>{const score=r?.value?.score;if(r?.found&&Number.isInteger(score)&&score>=0&&score<=10000)best=Math.max(best,score);}).catch(()=>{});}catch{}render(0);
+try{const result=window.platanusArcadeStorage?.get('dale-perro.duelo.score-v11');result?.then(r=>{const score=r?.value?.score;if(r?.found&&Number.isInteger(score)&&score>=0&&score<=10000)best=Math.max(best,score);}).catch(()=>{});}catch{}render(0);
 },update:tick}});
 return{game,audio:sonic,get view(){return v;},get phase(){return phase;},get mode(){return mode;},get elapsed(){return elapsed;},get winner(){return winner;},get muted(){return muted;},get musicMuted(){return musicMuted;},begin,action,serve,tick,valid,pause,render};
 })();
