@@ -1,5 +1,5 @@
 {
-  "game_name": "Platanus Hack: Caracas Brick Breaker",
-  "description": "Batalla campal por romper la mayor cantidad de ladrillos",
+  "game_name": "Dale Perro: duelo callejero",
+  "description": "Dos puestos, cuatro clientes y una madrugada en Caracas. Prepara el pedido, gana tiempo y presiona al rival. Un jugador contra CPU o dos jugadores locales.",
   "player_mode": "two_player"
 }
